@@ -13,7 +13,7 @@
 ##1.内核空间和用户空间之间的数据拷贝
 
 
-![内核态&&用户态](/Users/yunlong/Documents/git/netty/blog/images/内核态&&用户态.png)
+![内核态&&用户态](images/内核态&&用户态.png)
 
 ###概念明晰
 ####用户态与内核态
