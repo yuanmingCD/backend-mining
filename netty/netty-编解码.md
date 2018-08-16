@@ -1,0 +1,61 @@
+# 编解码
+
+## 什么是编解码？
+
+数据以  形态在网络中传输，这些数据并不能直接被程序所理解，只是一堆无用的字节序列，因而要建立约束规则，发送和接收时同时遵守，才可以将客户端请求数据在服务端进行还原，数据在由应用程序写入到网络的过程即为编码，
+
+## TCP粘包、拆包
+
+我们在应用程序中所处理的消息
+
+
+
+
+
+##  编解码框架效率对比
+
+我们平时已经接触过一些编解码的协议，比如json，xml，以及java自带的
+
+这里简单介绍几种
+
+protobuf
+
+
+
+
+
+选择编解码框架要考虑很多因素，跨语言支持、功能、社区等等，而性能上主要关注以下两点
+
+1. 编解码效率
+2. 编码后码流大小
+
+针对各种编解码协议，github上[jvm-serializers](#https://github.com/eishay/jvm-serializers/wiki) 项目进行了测评。里面涉及的参数比较多，有需求可以戳进去自己看下，这里就不再展开。
+
+
+
+
+
+##netty编解码框架
+netty主要提供四个基础类
+
+ - ByteToMessageDecoder 
+ - MessageToMessageDecoder 
+ - MessageToByteEncoder
+ - MessageToMessageEncoder
+
+1.累加数据 
+2.将累加到的数据传递给业务进行业务拆包 
+3.清理字节容器 
+4.传递业务数据包给业务解码器处理
+
+
+DelimiterBasedFrameDecoder 消息边界
+FixedLengthFrameDecoder 固定长度
+LengthFieldBasedFrameDecoder 消息头指定消息长度
+LineBasedFrameDecoder  回车换行符
+
+
+
+参考文献
+
+https://github.com/eishay/jvm-serializers/wiki

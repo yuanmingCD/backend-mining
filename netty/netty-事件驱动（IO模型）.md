@@ -1,4 +1,6 @@
-﻿提到IO模型,Unix网络编程的五种模型，但实际上这个分类不是很好理解，本文进行重新分类
+# 事件驱动
+
+提到IO模型,Unix网络编程的五种模型，但实际上这个分类不是很好理解，本文进行重新分类
 
 
 同步与异步
@@ -10,16 +12,22 @@
 
 
 
-##BIO（Blocking IO ，阻塞IO）
+### BIO（Blocking IO ，阻塞IO）
+
+
+
  accept，read，write会发生阻塞，直到数据到达或异常才会返回，一个线程只能处理一个请求，线程的资源有限，而且频繁切换会导致系统资源消耗
-##NIO（Non-blocking/New IO，非阻塞IO）
+
+### NIO（Non-blocking/New IO，非阻塞IO）
+
 事件注册之后会立即返回，这样就可以去做别的事，但是要定时轮询是否有事件就绪来处理事件，显然同一时间处理能力变强。
 
-##AIO（Asynchronous IO,NIO 2.0, 异步IO ）
+### AIO（Asynchronous IO,NIO 2.0, 异步IO ）
+
  除了阻塞和非阻塞的概念外，往往还会出现同步和异步的概念。如果BIO和NIO是阻塞和非阻塞的区别，那么AIO与NIO就是同步和异步的区别。
  同步简单理解为仍需主动轮询去获取
  异步可以简单理解为通过注册回调函数
- 
+
   Linux系统中的信号机制提供了一直通知某事情发生的方法。异步IO通知内核某个操作，并让内核在整个操作完成后通知应用程序
   注册回调函数，触发IO事件时执行回调通知应用程序，这样就连轮询的过程也省略了，极大提高了性能
 ##多路复用（Multiplexing，多工，事件驱动）
@@ -33,7 +41,7 @@
  1. 每次调用select，需要把fd_set从用户空间和内核空间之间进行拷贝，fd很多时开销很大
  2. 每次调用select都要在内核遍历进程的所有fd，fd很多时开销很大，随着fd增长而线性增长
  3. select支持的文件描述符有限，默认是1024，太小
- 
+
 
 ###poll
 poll的实现和select非常相似，只是文件描述符fd集合的方式不同，poll使用pollfd结构而不是select的fd_set结构; poll不是为每个条件（读/写/异常）构造一个描述符集，而是构造一个pollfd结构，每个数组元素指定一个描述符编号以及我们对该描述符感兴趣的条件
@@ -83,15 +91,15 @@ epoll与kqueue
 | 注册感兴趣事件| 1024&无限制| 无限制 | 无限制|
 |获取就绪事件集 |主动轮询|   异步回调 |异步回调|
 | 处理就绪事件 |用户程序处理| 用户程序处理 |系统处理|
-| 应用程序处理| 用户程序处理|用户程序处理 |用户程序处理 | 
-netty选择哪种多路复用？，
+| 应用程序处理| 用户程序处理|用户程序处理 |用户程序处理 |
+netty选择哪种多路复用？
 由于多路复用与系统调用，这个与操作系统有关，linux内核2.6版本之后的开始支持epoll调用，而mac os则为Kquue http://netty.io/wiki/native-transports.html
 jdk在启动的时候会根据操作系统自动选择选用哪种多路复用的实现
  - macosx: KQueueSelectorProvider
  - solaris: DevPollSelectorProvider
  - Linux: EPollSelectorProvider (Linux kernels >= 2.6)或 PollSelectorProvider
  - windows: WindowsSelectorProvider
- 
+
  相比于jdk实现，netty的实现有如下优势
  - Netty的 epoll transport使用 epoll edge-triggered 而 java的 nio 使用
    level-triggered. 
