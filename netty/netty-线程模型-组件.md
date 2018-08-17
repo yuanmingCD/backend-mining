@@ -186,7 +186,7 @@ private void processSelectedKey(SelectionKey k, AbstractNioChannel ch) {
 
 
 
-pipeline
+Pipeline
 
 ![pipeline](images/pipeline.png)
 

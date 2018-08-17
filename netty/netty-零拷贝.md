@@ -1,7 +1,3 @@
----
-typora-copy-images-to: ./images
----
-
 # 零拷贝机制
 
 ## 1. 什么是零拷贝
@@ -50,6 +46,7 @@ typora-copy-images-to: ./images
 #### 3.1.3 直接内存(堆外内存)与堆内存
 
 >**堆内存**：java内存模型中最大的一部分，用于存放由new创建的对象和数组。
+>
 >**直接内存**：JDK1.4 加入了新的 NIO 机制，此后 NIO 可以使用 Native 的方式直接在 内核空间分配内存。这部分不受 JVM 堆内存大小限制，JVM可以通过-XX:MaxDirectMemorySize对Direct Memory大小进行限制。达到操作系统内存上限仍会触发OutOfMemoryError 
 
 直接内存与堆内存比较分析
@@ -191,6 +188,8 @@ netty虽然在很多需要拷贝的地方做了优化，但是要注意的是并
 > 在实现DMA传输时，是由DMA控制器直接掌管总线，因此，存在着一个总线控制权转移问题。即DMA传输前，CPU要把总线控制权交给DMA控制器，而在结束DMA传输后，DMA控制器应立即把总线控制权再交回给CPU。一个完整的DMA传输过程必须经过DMA请求、DMA响应、DMA传输、DMA结束4个步骤。
 
 即CPU完成DMA的准备工作，真正的复制工作无需CPU参与，由DMA完成即可。
+
+
 
 参考文章
 https://my.oschina.net/javahongxi/blog/1523771
