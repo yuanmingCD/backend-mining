@@ -1,3 +1,11 @@
+# Disruptor——高性能单机队列
+
+定位： 高性能单价队列
+
+
+
+
+
 [高性能队列——Disruptor](https://tech.meituan.com/disruptor.html)
 
 [Java与CPU缓存是如何亲密接触的](https://mp.weixin.qq.com/s/ODJqoiHYwAhRCMnVjunsbQ)

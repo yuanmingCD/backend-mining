@@ -1,4 +1,4 @@
-#内存管理
+# netty-内存管理
 
 池化与非池化
 池化优势
@@ -9,9 +9,12 @@
 
 我们日常接触到的池化技术有很多，线程池、连接池、对象池、内存池等，线程池与连接池并非本文的重点，这里着重介绍netty的对象池和内存池。
 
-###对象池
+### 对象池
+
 用于Bytebuf的分配和回收，通过Recycler实现，是一个基于thread-local栈的轻量级对象池。
-####结构
+
+#### 结构
+
 Recycler是一个抽象类，在目标类中创建Recycler对象池实例时需要实现newObject(Handler handler)方法用来创建特定类的实例；
 
 Recycler对象池的实现主要是通过三个核心组件：
@@ -82,7 +85,7 @@ private volatile WeakOrderQueue head;
 我们可以把WeakOrderQueue看做一个对象仓库，stack内只维护一个Handle数组用于直接向Recycler提供服务，当从这个数组中拿不到对象的时候则会寻找对应WeakOrderQueue并调用其transfer方法向stack供给对象。
 WeakOrderQueue的功能可以由两个接口体现，add和transfer。add用于将handler（对象池管理的基本单位）放入队列，transfer用于向stack输入可以被重复使用的对象。
 Stack的仓库是由WeakOrderQueue连接起来的链表实现的，Stack维护着链表的头部指针。而每个WeakOrderQueue又维护着一个链表，节点由Link实现，Link的实现很简单，主要是继承AtomicInteger类另外还有一个Handle数组、一个读指针和一个指向下一个节点的指针，Link巧妙的利用AtomicInteger值来充当数组的写指针从而避免并发问题
-```
+```java
 //内部存储数据链头指针，对Link的封装
 private final Head head;
 private Link tail;
@@ -93,7 +96,7 @@ private final int id = ID_GENERATOR.getAndIncrement();
 ```
 weakOrderQueue内部是一个基于Link构成的链表，weakOrderQueue保留指向下一个weakOrderQueue实例的指针，
 Link是weakOrderQueue的一个内部类，本身也是一个链表
-```
+```java
 static final class Link extends AtomicInteger {
     //存储Hander实例的数组，绑定的值即为对象池中的对象实例
     private final DefaultHandle<?>[] elements = new DefaultHandle[LINK_CAPACITY];
@@ -178,7 +181,7 @@ DefaultHandle pop() {
 ```
 scavenge具体调用的是scavengeSome。
 
-```
+```java
 boolean scavengeSome() {
     WeakOrderQueue prev;
     WeakOrderQueue cursor = this.cursor;
@@ -237,7 +240,7 @@ boolean scavengeSome() {
 ####对象的回收
 Recycler#recycle方法: 是对象使用完毕后回收对象,只能回收当前线程创建的对象 现在已经标记@Deprecated不建议使用了, 建议使用Recycler.Handle#recycler方法，可以回收不是当前线程创建的对象, 复用性和性能更好了,DefaultHandle中的默认实现如下
 
-```
+```java
 public void recycle(Object object) {
     if (object != value) {
          throw new IllegalArgumentException("object does not belong to handle");
@@ -248,7 +251,7 @@ public void recycle(Object object) {
 这个stack就是创建Hander实例时绑定的Stack，由构造函数传入
 接下来跟进push方法
 
-```
+```java
 void push(DefaultHandle<?> item) {
     hread currentThread = Thread.currentThread();
     if (threadRef.get() == currentThread) {
@@ -262,7 +265,7 @@ void push(DefaultHandle<?> item) {
 ```
 stack.pushNow方法
 
-```
+```java
         private void pushNow(DefaultHandle<?> item) {
             if ((item.recycleId | item.lastRecycledId) != 0) {
                 throw new IllegalStateException("recycled already");
@@ -285,7 +288,7 @@ stack.pushNow方法
 
 stack.pushLater方法
 
-```
+```java
         private void pushLater(DefaultHandle<?> item, Thread thread) {
             // we don't want to have a ref to the queue as the value in our weak map
             // so we null it out; to ensure there are no races with restoring it later
@@ -320,29 +323,62 @@ stack.pushLater方法
 
 
 
-###内存池
-####结构
-####初始化
-####内存的分配
-####内存的回收
-####小结
+### 内存池
+
+#### 结构
+
+![内存模型数据结构](images/内存模型数据结构.png)
 
 
 
-##netty 分配内存的完整过程
+#### 初始化
+
+#### 内存的分配
+
+#### 内存的回收
+
+#### 小结
 
 
 
-##内存泄露检测
+## netty 分配内存的完整过程
+
+
+
+## 内存泄露检测
+
+引用计数器与可达性分析
+
+
+
 java为何会发生内存泄露
+
+
 
 最简单的内存泄露实例
 
 
 
+netty为何会发生内存泄露
+
+netty buffer内存模型（分三层）
+
+ByteBuf不再使用后（没有引用），没有调用release，导致ByteBuf资源一直被占用无法回收
 
 
 
-参考文章
+netty检测内存泄露原理
+
+**原理：**每次创建ByteBuf时，创建一个虚引用对象A指向该ByteBuf对象，如果正常调用release()操作，则虚引用对象A和ByteBuf对象均被回收；如果ByteBuf对象不再使用（没有其他引用）但没有调用release()操作，则GC时虚引用对象A被加入ReferenceQueue中，通过判断队列是否为空，即可知道是否存在内存泄露。
+
+
+
+## 参考文章
+
+[Netty源码分析（八）—内存池分析](https://blog.csdn.net/u013967175/article/details/78627801)
+
 https://my.oschina.net/andylucc/blog/614589
+
 https://blog.csdn.net/u013967175/article/details/78627769
+
+[netty 堆外内存泄露排查盛宴](https://www.jianshu.com/p/4e96beb37935?hmsr=toutiao.io&utm_medium=toutiao.io&utm_source=toutiao.io)
