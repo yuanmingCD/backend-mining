@@ -1,8 +1,10 @@
 # 线程模型-核心组件
 
+本文将主要介绍netty在线程实现上的核心组件以及细节
+
 ## NioEventLoopGroup
 
-实际上就是一个线程池
+本质上就是一个线程池
 
 ## NioEventLoop
 
@@ -205,5 +207,13 @@ Inbound过程会从头指针HeadChannel开始向后顺序遍历所有的ChannelI
 
 
 前文已经提到，串行化设计,一个selector对应一个NioEventLoop,一个channel只会注册在一个Selector上，被一条线程执行，因而可以，通常一个Handler只会注册在一个pipeline上，而每一个线程
+
+
+
+
+
+
+
+https://stackoverflow.com/questions/41457434/why-every-thread-need-to-execute-selector-select-in-netty
 
 

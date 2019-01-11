@@ -153,8 +153,6 @@ MappedByteBuffer本该是DirectByteBuffer的子类，可以理解为MappedByteBu
 
 ![内存文件映射](images/内存文件映射.png)
 
-
-
 内存文件映射过程如下：
 
 1.  mmap()会返回一个指针ptr，它指向进程逻辑地址空间中的一个地址
@@ -164,8 +162,6 @@ MappedByteBuffer本该是DirectByteBuffer的子类，可以理解为MappedByteBu
 
 *  相似之处：数据都是存储在磁盘上，内存中通过维护引用，在需要数据时快速加载到内存中
 *  不同之处：目标不同：虚拟内存是扩展内存资源，内存文件映射用来访问文件
-
-
 
 ![image-20180813212800339](images/文件读取原理.png)
 
@@ -195,6 +191,8 @@ netty虽然在很多需要拷贝的地方做了优化，但是要注意的是并
 
 [走进科学之揭开神秘的"零拷贝"！](https://mp.weixin.qq.com/s/ZM_Zxvu7ZdOruIaeXkH0Kw)
 
-
+[mmap详解](https://nieyong.github.io/wiki_cpu/mmap%E8%AF%A6%E8%A7%A3.html)
 
 https://my.oschina.net/javahongxi/blog/1523771
+
+[mmap映射文件至内存( 实现 共享内存 与 文件的另类访问 )](https://blog.csdn.net/u011170660/article/details/38340831)

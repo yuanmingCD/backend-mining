@@ -2,11 +2,11 @@
 
 ## 什么是编解码？
 
-数据以  形态在网络中传输，这些数据并不能直接被程序所理解，只是一堆无用的字节序列，因而要建立约束规则，发送和接收时同时遵守，才可以将客户端请求数据在服务端进行还原，数据在由应用程序写入到网络的过程即为编码，
+数据以字节流形态在网络中传输，这些数据并不能直接被程序所理解，只是一堆无用的字节序列，因而要建立约束规则，发送和接收时同时遵守，才可以将客户端请求数据在服务端进行还原，数据在由应用程序写入到网络的过程即为编码，
 
 ## TCP粘包、拆包
 
-我们在应用程序中所处理的消息，由于TCP不了解上层业务数据，可能会将一个报文信息拆开发送（拆包），或者多个报文信息组合发送（粘包），导致接收端无法正确理解数据含义，解码错误。
+我们在应用程序中所处理的消息，由于TCP不了解上层业务数据，可能会将一个应用层报文信息拆开发送（拆包），或者多个报文信息组合发送（粘包），导致接收端无法正确理解数据含义，解码错误。
 
 
 
@@ -19,17 +19,9 @@
 
 
 
-
-
 ##  编解码框架效率对比
 
-我们平时已经接触过一些编解码的协议，比如json，xml，以及java自带的
-
-这里简单介绍几种
-
-protobuf
-
-
+我们平时已经接触过一些编解码的协议，比如protobuf、Thrift、Marshalling、MessagePack、kryo、hession和Json等。
 
 选择编解码框架要考虑很多因素 
 
@@ -61,22 +53,15 @@ netty主要提供四个基础类
 
 
 
-ByteToMessageDecoder
+ByteToMessageDecoder是netty解码器的基础，
 
-是解码器的基础，
 
-解码过程大体如下：
-
-1. 累加数据 
-2. 将累加到的数据传递给业务进行业务拆包 
-3. 清理字节容器 
-4. 传递业务数据包给业务解码器处理
 
 下面结合代码详细分析，具体的使用方法类注释上已经进行了详细说明
 
 首先通过累加器对ByteBuf内的数据进行聚合，
 
-```
+```java
 public interface Cumulator {
     ByteBuf cumulate(ByteBufAllocator alloc, ByteBuf cumulation, ByteBuf in);
 }
@@ -88,7 +73,7 @@ public interface Cumulator {
 
 ByteToMessageDecoder中提供了两种累加器。
 
-```
+```java
 public static final Cumulator MERGE_CUMULATOR
 public static final Cumulator COMPOSITE_CUMULATOR
 ```
@@ -98,7 +83,7 @@ public static final Cumulator COMPOSITE_CUMULATOR
 
 netty使用MERGE_CUMULATOR作为默认累加器，为什么呢？方法注释里这样解释
 
-​    CompositeByteBuf使用了一套更加复杂的索引实现，因此依赖于使用场景和解码实现，可能会比直接使用MERGE_CUMULATOR还要慢。
+> CompositeByteBuf使用了一套更加复杂的索引实现，因此依赖于使用场景和解码实现，可能会比直接使用MERGE_CUMULATOR还要慢。
 
 解码器本质上也是一个ChannelInboundHandler，因此其读取到数据首先要经由channelRead方法读入处理。
 
@@ -108,24 +93,28 @@ public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception 
         CodecOutputList out = CodecOutputList.newInstance();
         try {
             ByteBuf data = (ByteBuf) msg;
+            //判断累加器是否为null，若为null则指向当前传进的msg，若不为null则进行累加操作
             first = cumulation == null;
             if (first) {
                 cumulation = data;
             } else {
                 cumulation = cumulator.cumulate(ctx.alloc(), cumulation, data);
             }
+            //调用解码方法
             callDecode(ctx, cumulation, out);
         } catch (DecoderException e) {
             throw e;
         } catch (Exception e) {
             throw new DecoderException(e);
         } finally {
+            //累加器无数据可读
             if (cumulation != null && !cumulation.isReadable()) {
                 numReads = 0;
                 cumulation.release();
                 cumulation = null;
+              //已读数据次数大于该清理阈值(默认为16)
             } else if (++ numReads >= discardAfterReads) {
-                // We did enough reads already try to discard some bytes so we not risk to see a OOME.
+               //清理部分字节，防止OOM
                 // See https://github.com/netty/netty/issues/4275
                 numReads = 0;
                 discardSomeReadBytes();
@@ -142,9 +131,93 @@ public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception 
 }
 ```
 
+解码过程大体如下：
+
+1. 累加数据 
+2. 将累加到的数据传递给业务进行业务拆包 
+3. 清理字节容器 
+4. 传递业务数据包给业务解码器处理
+
 核心方法是callDecode(ctx, cumulation, out);方法，方法如下：
 
+```java
+protected void callDecode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
+    try {
+        while (in.isReadable()) {
+            int outSize = out.size();
 
+            //第一次执行不会进入，第二次进入
+            if (outSize > 0) {
+                //继续读取
+                fireChannelRead(ctx, out, outSize);
+                out.clear();
+
+                //检查handler是否被移除
+                if (ctx.isRemoved()) {
+                    break;
+                }
+                outSize = 0;
+            }
+
+            //记录可读字节，即待解码字节数
+            int oldInputLength = in.readableBytes();
+            //调用业务解码方法，是一个抽象方法需在继承ByteToMessageDecoder的类中由用户实现
+            decodeRemovalReentryProtection(ctx, in, out);
+            
+            //在开始循环之前再次检测
+            // See https://github.com/netty/netty/issues/1664
+            if (ctx.isRemoved()) {
+                break;
+            }
+
+            //比较out对象是否有变化，相等就说明没有解析出数据包
+            //这里注意的是java是传址，decodeRemovalReentryProtection方法内对out的修改会在这里生效
+            if (outSize == out.size()) {
+                //如果没有读取到数据直接退出循环
+                if (oldInputLength == in.readableBytes()) {
+                    break;
+                } else {
+                    //已读取还未读取完，继续循环
+                    continue;
+                }
+            }
+
+            //解析出数据包确没有读取数据，抛出异常
+            if (oldInputLength == in.readableBytes()) {
+                throw new DecoderException(
+                        StringUtil.simpleClassName(getClass()) +
+                                ".decode() did not read anything but decoded a message.");
+            }
+
+            if (isSingleDecode()) {
+                break;
+            }
+        }
+    } catch (DecoderException e) {
+        throw e;
+    } catch (Exception cause) {
+        throw new DecoderException(cause);
+    }
+}
+```
+
+decodeRemovalReentryProtection 方法如下：其中decode方法要用户继承Byte
+
+```java
+final void decodeRemovalReentryProtection(ChannelHandlerContext ctx, ByteBuf in, List<Object> out)
+        throws Exception {
+    decodeState = STATE_CALLING_CHILD_DECODE;
+    try {
+        decode(ctx, in, out);
+    } finally {
+        boolean removePending = decodeState == STATE_HANDLER_REMOVED_PENDING;
+        decodeState = STATE_INIT;
+        if (removePending) {
+            handlerRemoved(ctx);
+        }
+    }
+}
+```
 
 
 
@@ -154,6 +227,10 @@ public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception 
 - FixedLengthFrameDecoder 固定长度
 - LengthFieldBasedFrameDecoder 消息头指定消息长度
 - LineBasedFrameDecoder  回车换行符
+
+我们来逐个分析一下
+
+
 
 
 
