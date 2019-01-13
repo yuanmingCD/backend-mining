@@ -24,12 +24,14 @@ swagger
 
 ### SSL connection
 
+
+
 ### 各层职能
 
 dao 与数据库的数据交互
 https://www.ibm.com/developerworks/cn/opensource/os-cn-spring-jpa/index.html
 https://docs.spring.io/spring-data/jpa/docs/current/reference/html/#jpa.auditing
-spring data jpa 
+### spring data jpa 
 一种约定规范的实现
 
 Repository
@@ -73,9 +75,6 @@ controller 文档以及对外接口
 
 分工明确，不要跨层级的调用，个人觉得即便dao层有方法可以直接使用，在service添加一个对应方法中转一下，看起来会清晰很多
 
-
-18516736066
-
 ### 缓存
 spring boot 支持很多缓存
 通过spring.cache.type 指定
@@ -88,10 +87,6 @@ spring boot 支持很多缓存
 @CachePut	执行方法并将返回结果更新缓存(updates the cache without interfering with the method execution)
 @Caching	构建多个缓存操作应用在一个方法上(regroups multiple cache operations to be applied on a method)
 @CacheConfig	共享一些类级别的缓存相关配置(shares some common cache-related settings at class-level)
-
-
-
-
 
 ### 日志
 
@@ -128,7 +123,7 @@ https://jasper-zhang1.gitbooks.io/influxdb/content/Introduction/installation.htm
 
 
 ### 多环境支持
-通常会分为dev，test，prod等环境，针对不同的环境有不同的配置文件
+通常会分为线上等环境，针对不同的环境有不同的配置文件
 
 
 协议支持rpc http2 ssl
