@@ -27,3 +27,5 @@ mysql
 [数据库内核月报](http://mysql.taobao.org/monthly/)
 
 [数据库内核月报2014-2016](https://www.kancloud.cn/taobaomysql/monthly/67180)
+
+[MySQL命令，一篇文章替你全部搞定](https://juejin.im/post/5ae55861f265da0ba062ec71)
