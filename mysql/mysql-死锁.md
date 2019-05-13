@@ -21,8 +21,6 @@
 
 
 
-
-
 innodb_lock_wait_timeout 等待锁超时回滚事务：
 直观方法是在两个事务相互等待时，当一个等待时间超过设置的某一阀值时，对其中一个事务进行回滚，另一个事务就能继续执行。这种方法简单有效，在innodb中，参数innodb_lock_wait_timeout用来设置超时时间。
 
@@ -34,7 +32,7 @@ innodb还提供了wait-for graph算法来主动进行死锁检测，每当加锁
 
 解决与预防办法
 
-）以固定的顺序访问表和行。比如两个更新数据的事务，事务A 更新数据的顺序 为1，2；事务B更新数据的顺序为2，1。这样更可能会造成死锁。
+1）以相同的顺序访问表和行。
 
 2）大事务拆小。大事务更倾向于死锁，如果业务允许，将大事务拆小。
 
@@ -53,3 +51,5 @@ innodb还提供了wait-for graph算法来主动进行死锁检测，每当加锁
 [Deadlocks in InnoDB](https://dev.mysql.com/doc/refman/8.0/en/innodb-deadlocks.html)
 
 [死锁的概念以及产生死锁的原因](https://www.kancloud.cn/hanghanghang/os/239542)
+
+[解决死锁之路（终结篇） - 再见死锁](https://www.aneasystone.com/archives/2018/04/solving-dead-locks-four.html)

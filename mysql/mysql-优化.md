@@ -17,12 +17,18 @@
 ![SQL JOINS](images/SQL JOINS.png)
 
 - outer join
-  - left join 
+  - left join 左表全部符合条件的数据，即便对应右表数据为空
   - Right join
   - full outer join
 - inner join 
 
 笛卡尔积，交集
+
+
+
+连接表还是子查询
+
+
 
 ### on 还是 where 
 

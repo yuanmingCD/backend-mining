@@ -7,7 +7,7 @@
 
 ## 存储相关
 
-mysql [doing]
+mysql——关系型数据库 [doing]
 
 redis [todo]
 
@@ -21,3 +21,14 @@ canel [todo]
 
 kafka [todo]
 
+disruptor——单机高性能队列 [todo]
+
+
+
+## 中间件
+
+Apollo——携程高性能配置中心 [todo]
+
+Leaf——美团点评分布式唯一ID[todo]
+
+## 数据结构与算法

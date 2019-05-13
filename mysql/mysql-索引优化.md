@@ -8,6 +8,14 @@
 
  key 、primary key 、unique key 与index区别
 
+
+
+SET OPTIMIZER_TRACE_MAX_MEM_SIZE=268435456; 
+
+SET optimizer_trace="enabled=on";
+
+
+
 ## 概念明晰
 
 ## 聚簇索引

@@ -4,6 +4,24 @@
 
 
 
+需要注意的是
+
+
+
+
+
+主要知识点：
+
+ringbuffer 
+
+伪共享
+
+
+
+
+
+使用
+
 
 
 [高性能队列——Disruptor](https://tech.meituan.com/disruptor.html)
