@@ -1,6 +1,6 @@
 # leaf-源码剖析
 
-
+[TOC]
 
 leaf提供两种发号模式
 
@@ -297,16 +297,160 @@ Leaf-segment，主要通过以下方法实现优化。
 
 ## snowflake模式
 
-核心代码在SnowflakeIDGenImpl中
+根据之前文章对snowflake算法的分析，我们需要关注的点如下
 
 - 机器id分配
-- 时钟回拨
+- 单机snowflakeID生成
+
+核心代码在SnowflakeIDGenImpl中，我们按照这三块内容进行分析
+
+### **机器id分配**
+
+通过之前对snowflake的分析可以看出，需要分配机器唯一标识workerId，由于workerId占用10bit，所以范围为0-1023，leaf通过zookper实现，具体在SnowflakeZookeeperHolder类中实现。
+
+机器启动初始化
+
+```java
+public boolean init() {
+  try {
+    CuratorFramework curator = createWithOptions(connectionString, new RetryUntilElapsed(1000, 4), 10000, 6000);
+    curator.start();
+    Stat stat = curator.checkExists().forPath(PATH_FOREVER);
+    if (stat == null) {
+      //不存在根节点,表示第一次启动,创建/snowflake/ip:port-000000000,并上传数据
+      zk_AddressNode = createNode(curator);
+      //worker id 默认是0
+      updateLocalWorkerID(workerID);
+      //定时上报本机时间给forever节点
+      ScheduledUploadData(curator, zk_AddressNode);
+      return true;
+    } else {
+      Map<String, Integer> nodeMap = Maps.newHashMap();//ip:port->00001
+      Map<String, String> realNode = Maps.newHashMap();//ip:port->(ipport-000001)
+      //存在根节点,先检查是否有属于自己的根节点
+      List<String> keys = curator.getChildren().forPath(PATH_FOREVER);
+      for (String key : keys) {
+        String[] nodeKey = key.split("-");
+        realNode.put(nodeKey[0], key);
+        nodeMap.put(nodeKey[0], Integer.parseInt(nodeKey[1]));
+      }
+      Integer workerid = nodeMap.get(listenAddress);
+      if (workerid != null) {
+        //有自己的节点,zk_AddressNode=ip:port
+        zk_AddressNode = PATH_FOREVER + "/" + realNode.get(listenAddress);
+        workerID = workerid;//启动worder时使用会使用
+        //当前时间戳不能小于上次上报的时间戳
+        if (!checkInitTimeStamp(curator, zk_AddressNode))
+          throw new CheckLastTimeException("init timestamp check error,forever node timestamp gt this node time");
+        //准备创建临时节点
+        doService(curator);
+        updateLocalWorkerID(workerID);
+        LOGGER.info("[Old NODE]find forever node have this endpoint ip-{} port-{} workid-{} childnode and start SUCCESS", ip, port, workerID);
+      } else {
+        //表示新启动的节点,创建持久节点 ,不用check时间
+        String newNode = createNode(curator);
+        zk_AddressNode = newNode;
+        String[] nodeKey = newNode.split("-");
+        //生成workerId，通过构建
+        workerID = Integer.parseInt(nodeKey[1]);
+        doService(curator);
+        updateLocalWorkerID(workerID);
+        LOGGER.info("[New NODE]can not find node on forever node that endpoint ip-{} port-{} workid-{},create own node on forever node and start SUCCESS ", ip, port, workerID);
+      }
+    }
+  } catch (Exception e) {
+    LOGGER.error("Start node ERROR {}", e);
+    try {
+      //降级，zk出现异常时从本地获取workId
+      Properties properties = new Properties();
+      properties.load(new FileInputStream(new File(PROP_PATH.replace("{port}", port + ""))));
+      workerID = Integer.valueOf(properties.getProperty("workerID"));
+      LOGGER.warn("START FAILED ,use local node file properties workerID-{}", workerID);
+    } catch (Exception e1) {
+      LOGGER.error("Read file error ", e1);
+      return false;
+    }
+  }
+  return true;
+}
+```
+
+​		数据在zk上存储形式为{ip:port}-{workId},路径为/snowflake，同时在本地缓存一份workerId，当zk挂掉时不影响服务正常启动。
+
+workerId通过生成Endpoint对象序列化得到，这里没有看懂感觉这样操作得不到int类型。而且一直没有校验workerId重复的代码，很迷；而且没有心跳摘除的代码，workerId岂不是要长期占用。如果有看懂的大神方便解答一下。
+
+​		个人理解这块的实现，路径只存workerId就好，里面的内容存ip即可，缓存内容可不变。
 
 
 
+### 单机snowflakeId生成
+
+由于snowflake 是有几部分拼接而成，任意一部分不同即可保证唯一性，机器之间通过workerId进行区分，单机仅需保证时间戳不重复，以及相同时间戳下序列号不重复即可。核心代码在SnowflakeIDGenImpl中。
+
+初始化，获取workerId，实例化。
+
+```java
+public SnowflakeIDGenImpl(String zkAddress, int port) {
+    this.port = port;
+    SnowflakeZookeeperHolder holder = new SnowflakeZookeeperHolder(Utils.getIp(), String.valueOf(port), zkAddress);
+    initFlag = holder.init();
+    if (initFlag) {
+        workerId = holder.getWorkerID();
+        LOGGER.info("START SUCCESS USE ZK WORKERID-{}", workerId);
+    } else {
+        Preconditions.checkArgument(initFlag, "Snowflake Id Gen is not init ok");
+    }
+    Preconditions.checkArgument(workerId >= 0 && workerId <= maxWorkerId, "workerID must gte 0 and lte 1023");
+}
+```
+
+### 发号
+
+```java
+public synchronized Result get(String key) {
+    long timestamp = timeGen();
+    //校验时钟，防止时钟回拨重复发号
+    //当前时间小于上次时间戳，发生时钟回拨。
+    if (timestamp < lastTimestamp) {
+        //若差值小于5ms可以休眠2*offset，否则直接抛异常
+        long offset = lastTimestamp - timestamp;
+        if (offset <= 5) {
+            try {
+                wait(offset << 1);
+                timestamp = timeGen();
+                if (timestamp < lastTimestamp) {
+                    return new Result(-1, Status.EXCEPTION);
+                }
+            } catch (InterruptedException e) {
+                LOGGER.error("wait interrupted");
+                return new Result(-2, Status.EXCEPTION);
+            }
+        } else {
+            return new Result(-3, Status.EXCEPTION);
+        }
+    }
+    
+   //时间戳相等，生成sequence，即snowflake最后12bit
+    if (lastTimestamp == timestamp) {
+        sequence = (sequence + 1) & sequenceMask;
+        if (sequence == 0) {
+            //seq 为0的时候表示是下一毫秒时间开始对seq做随机
+            sequence = RANDOM.nextInt(100);
+            timestamp = tilNextMillis(lastTimestamp);
+        }
+    } else {
+        //如果是新的ms开始
+        sequence = RANDOM.nextInt(100);
+    }
+    lastTimestamp = timestamp;
+    //id拼接
+    long id = ((timestamp - twepoch) << timestampLeftShift) | (workerId << workerIdShift) | sequence;
+    return new Result(id, Status.SUCCESS);
+
+}
+```
 
 
-通过之前对snowflake的分析可以看出，需要分配机器唯一ID，通过zookper实现。
 
 
 
