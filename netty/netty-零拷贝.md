@@ -2,7 +2,7 @@
 
 ## 1. 什么是零拷贝
 
-零拷贝是netty重要特性之一，类似的分析文章也看过很多，但是依然存在疑惑，这里进行一下整理
+零拷贝是netty重要特性之一，简言之，无需数据在内存中进行拷贝
 
 >"Zero-copy" describes computer operations in which the CPU does not perform the task of copying data from one memory area to another.
 
