@@ -12,10 +12,10 @@
 
 - **id**：表的读取顺序，
 - **select_type**：查询类型
-- **table** 对应行正在访问哪一个表，表名或者别名
+- **table**：对应行正在访问哪一个表，表名或者别名
 - **type**：查询类型，关键指标
-- **partitions**：分区表命中的分区情况，非分区表该字段为空（null）
-- **possible_keys**：可以利用以快速检索行的索引
+- **partitions**：分区表命中的分区情况，非分区表该字段为null
+- **possible_keys**：可能用到的索引
 - **key**：实际使用的索引。如果为`NULL`，则没有使用索引。很少的情况下，MySQL会选择优化不足的索引。这种情况下，可以在`SELECT`语句中使用`USE INDEX（indexname）` 来强制使用一个索引或者用`IGNORE INDEX（indexname）`来强制MySQL忽略索引。
 - **key_len**：使用的索引的长度
 - **ref**：ref列显示使用哪个列或常数与key一起从表中选择行。

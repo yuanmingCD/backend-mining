@@ -98,7 +98,11 @@ PreRequestProcessor,ProposalRequestProcessor,SyncRequestProcessor
 
 
 
+## 源码构建
 
+```xml
+mvn install -DskipTests
+```
 
 
 

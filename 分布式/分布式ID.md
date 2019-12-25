@@ -6,8 +6,6 @@
 
 通常引入分布式唯一ID用于解决分库分表中全局唯一主键问题。
 
-
-
 ## 常用解决方案
 
 ### UUID（Universally Unique Identifier，通用唯一识别码）
