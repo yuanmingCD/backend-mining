@@ -63,4 +63,4 @@ Mysql Group Replication由至少3个或更多个节点共同组成一个数据�
 
 ## 原理
 
-通过mysql binlog将数据数据同步到从库
+通过mysql binlog将数据数据同步到从库，
