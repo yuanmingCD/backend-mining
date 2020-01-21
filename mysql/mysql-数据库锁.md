@@ -203,6 +203,8 @@ MVCC（Multiversion concurrency control ，多版本并发控制）
 
 
 
+
+
 **对于快照读来说，幻读的解决是依赖mvcc解决。而对于当前读则依赖于gap-lock解决。**
 
 MVCC的最大好处：读不加任何锁，读写不冲突，对于读操作多于写操作的应用，极大的增加了系统的并发性能；
@@ -217,7 +219,20 @@ MVCC的最大好处：读不加任何锁，读写不冲突，对于读操作多�
 
 (d)Serializable则会对所有的行加锁。
 
+在事务隔离级别为RC和RR级别下， InnnoDB存储引擎使用的才是多版本并发控制。然而，对于快照数据的定义却不相同。在RC事务隔离级别下，对于快照数据（undo端数据），总是读取被锁定行的最新的一份快照数据。而在RR事务隔离级别下，对于快照数据，多版本并发控制总是读取事务开始时的行数据。
 
+
+
+MVCC实现原理
+
+
+
+行记录隐藏字段
+
+- db_row_id，行ID，用来生成默认聚簇索引（**聚簇索引**，保存的数据在物理磁盘中按顺序保存，这样相关数据保存在一起，提高查询速度）
+- db_trx_id，事务ID，新开始一个事务时生成，实例内全局唯一
+- db_roll_ptr，undo log指针，指向对应记录当前的undo log
+- deleted_bit，删除标记位，删除时设置
 
 
 
@@ -272,6 +287,6 @@ INNODB的MVCC通常是通过在每行数据后边保存两个隐藏的列来实�
 
 https://www.cnblogs.com/xiaoboluo768/p/7615823.html
 
-
+[14.7.1 InnoDB Locking](https://dev.mysql.com/doc/refman/5.7/en/innodb-locking.html#innodb-insert-intention-locks)
 
 https://www.aneasystone.com/archives/2017/12/solving-dead-locks-three.html

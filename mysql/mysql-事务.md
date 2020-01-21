@@ -151,4 +151,43 @@ SET GLOBAL TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 ## 事务的实现
 
-　因为事务需要在失败的时候进行回滚，的通过记录undo日志来实现
+mysql通过WAL(write-ahead logging)技术保证事务，即在实际操作数据之前先记录
+
+涉及到两种log类型
+
+- redo log 保证事务持久性以及一致性，即意外宕机可通过redolog还原未处理数据
+- undo log 保证事务一致性，因为事务需要在失败的时候进行回滚
+
+### redo log
+
+由于磁盘IO相对内存操作来说代价过高，若每次写操作都立即写到磁盘性能会大打折扣，因而Innodb会预先在内存中进行缓存一段时间的数据，然后批量执行，减少频繁磁盘IO带来的性能损耗。但是这样就会引入一个问题，一旦数据还未写入磁盘存储引擎发生了down机，这部分数据就会丢失，因而预先记录redo log，恢复未落盘的数据
+
+**redo log记录方式**
+ redolog的大小是固定的，在mysql中可以通过修改配置参数innodb_log_files_in_group和innodb_log_file_size配置日志文件数量和每个日志文件大小，redolog采用循环写的方式记录，当写到结尾时，会回到开头循环写日志。如下图
+
+
+
+redo log 与binlog的区别
+
+1、redo log的大小是固定的，日志上的记录修改落盘后，日志会被覆盖掉，无法用于数据回滚/数据恢复等操作。
+2、redo log是innodb引擎层实现的，并不是所有引擎都有。
+
+1、binlog是server层实现的，意味着所有引擎都可以使用binlog日志
+ 2、binlog通过追加的方式写入的，可通过配置参数max_binlog_size设置每个binlog文件的大小，当文件大小大于给定值后，日志会发生滚动，之后的日志记录到新的文件上。
+ 3、binlog有两种记录模式，statement格式的话是记sql语句， row格式会记录行的内容，记两条，更新前和更新后都有。
+
+
+
+相关参数
+
+### undo log
+
+
+
+
+
+
+
+参考文章
+
+[mysql日志系统之redo log和bin log](https://www.jianshu.com/p/4bcfffb27ed5)

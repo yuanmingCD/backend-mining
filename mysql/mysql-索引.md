@@ -16,13 +16,13 @@
 
 # 索引数据结构
 
-Hash索引
+### Hash索引
 
 
 
-## B-树（Balance tree，平衡树），读作B树，
+## B-树
 
-
+B-树（Balance tree，平衡树），读作B树，
 
 ## B+树
 

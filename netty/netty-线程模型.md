@@ -1,4 +1,6 @@
-# 线程模型
+# netty-线程模型
+
+[TOC]
 
 ## 传统阻塞线程模型
 
@@ -6,21 +8,19 @@
 
 ![阻塞线程模型](images/阻塞线程模型.png)
 
-
-
 其中灰色部分为系统调用，蓝色部分为用户程序处理。
 
 1. 单线程  
 
-   ​	最传统最简洁的线程模型，线程阻塞无法继续处理，同一时间只能处理一个IO
+   ​	最传统最简洁的线程模型，线程阻塞无法继续处理其它请求，同一时间只能处理一个IO
 
 2. 多线程
 
-   ​        充分利用CPU多核的优势 可以开启多个线程并行处理任务，以网络IO为例，可以并行处理多个socket，但是一条线程还是同时只能处理一个请求，线程的创建、消耗以及上下文切换本身是十分消耗资源的。
+   ​    开启多条线程并行处理多个请求，但是频繁的创建和销毁线程十分消耗系统资源，而且不利于资源的管理，容易造成系统资源耗尽。
 
 3. 线程池
 
-   ​	多线程碎岩提高了处理能力，但是频繁的创建和销毁线程十分消耗系统资源，而且不利于资源的管理，容易造成系统资源耗尽。采用线程池可以有效解决这些问题，但是终归没有解决一条线程同时只能处理一个请求的问题。
+   ​	采用线程池可以有效解决多线程存在的一些问题，但是终归没有解决一条线程同时只能处理一个请求的问题，处理能力有限。
 
    ![多线程](images/多线程.png)
 
@@ -52,7 +52,7 @@
 
 3. 主从多线程Reactor(M,N)
 
-   ​	单个线程处理连接请求可能存在性能瓶颈，同处理业务一样，采用线程池来处理连接请求，并提供chooser用来选取一条线程作为acceptor线程。即双线程结构，具体细节将会在netty线程模型一节详细展开
+   ​	单个线程处理连接请求可能存在性能瓶颈，同处理业务一样，采用线程池来处理连接请求，并提供chooser用来选取一条线程作为acceptor线程。即双线程池结构，具体细节将会在netty线程模型一节详细展开
 
    ![reactor](images/reactor.png)
 
@@ -142,5 +142,167 @@ try {
 }
 ```
 
+### 线程启动
 
 
+
+### 线程运行
+
+NioEventLoop
+
+```java
+protected void run() {
+    for (;;) {
+        try {
+            switch (selectStrategy.calculateStrategy(selectNowSupplier, hasTasks())) {
+                case SelectStrategy.CONTINUE:
+                    continue;
+                case SelectStrategy.SELECT:
+                   //1. 遍历fd
+                    select(wakenUp.getAndSet(false));
+                    if (wakenUp.get()) {
+                        selector.wakeup();
+                    }
+                    // fall through
+                default:
+            }
+
+            cancelledKeys = 0;
+            needsToSelectAgain = false;
+            final int ioRatio = this.ioRatio;
+            if (ioRatio == 100) {
+                try {
+                    //2.处理就绪事件
+                    processSelectedKeys();
+                } finally {
+                    //3.执行任务
+                    runAllTasks();
+                }
+            } else {
+                final long ioStartTime = System.nanoTime();
+                try {
+                    processSelectedKeys();
+                } finally {
+                    // Ensure we always run tasks.
+                    final long ioTime = System.nanoTime() - ioStartTime;
+                    runAllTasks(ioTime * (100 - ioRatio) / ioRatio);
+                }
+            }
+        } catch (Throwable t) {
+            handleLoopException(t);
+        }
+        //处理异常，防止线程退出
+        try {
+            if (isShuttingDown()) {
+                closeAll();
+                if (confirmShutdown()) {
+                    return;
+                }
+            }
+        } catch (Throwable t) {
+            handleLoopException(t);
+        }
+    }
+}
+```
+
+线程一直处于循环状态，我们提炼线程主要在做的三件事
+
+1. 遍历找到就绪事件
+2. 处理就绪事件
+3. 执行任务
+
+select操作
+
+```java
+private void select(boolean oldWakenUp) throws IOException {
+    Selector selector = this.selector;
+    try {
+        int selectCnt = 0;
+        long currentTimeNanos = System.nanoTime();
+        long selectDeadLineNanos = currentTimeNanos + delayNanos(currentTimeNanos);
+
+        for (;;) {
+            long timeoutMillis = (selectDeadLineNanos - currentTimeNanos + 500000L) / 1000000L;
+            if (timeoutMillis <= 0) {
+                if (selectCnt == 0) {
+                    selector.selectNow();
+                    selectCnt = 1;
+                }
+                break;
+            }
+
+            // If a task was submitted when wakenUp value was true, the task didn't get a chance to call
+            // Selector#wakeup. So we need to check task queue again before executing select operation.
+            // If we don't, the task might be pended until select operation was timed out.
+            // It might be pended until idle timeout if IdleStateHandler existed in pipeline.
+            if (hasTasks() && wakenUp.compareAndSet(false, true)) {
+                selector.selectNow();
+                selectCnt = 1;
+                break;
+            }
+
+            int selectedKeys = selector.select(timeoutMillis);
+            selectCnt ++;
+
+            if (selectedKeys != 0 || oldWakenUp || wakenUp.get() || hasTasks() || hasScheduledTasks()) {
+                // - Selected something,
+                // - waken up by user, or
+                // - the task queue has a pending task.
+                // - a scheduled task is ready for processing
+                break;
+            }
+            if (Thread.interrupted()) {
+                // Thread was interrupted so reset selected keys and break so we not run into a busy loop.
+                // As this is most likely a bug in the handler of the user or it's client library we will
+                // also log it.
+                //
+                // See https://github.com/netty/netty/issues/2426
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Selector.select() returned prematurely because " +
+                            "Thread.currentThread().interrupt() was called. Use " +
+                            "NioEventLoop.shutdownGracefully() to shutdown the NioEventLoop.");
+                }
+                selectCnt = 1;
+                break;
+            }
+
+            long time = System.nanoTime();
+            if (time - TimeUnit.MILLISECONDS.toNanos(timeoutMillis) >= currentTimeNanos) {
+                // timeoutMillis elapsed without anything selected.
+                selectCnt = 1;
+            } else if (SELECTOR_AUTO_REBUILD_THRESHOLD > 0 &&
+                    selectCnt >= SELECTOR_AUTO_REBUILD_THRESHOLD) {
+                // The selector returned prematurely many times in a row.
+                // Rebuild the selector to work around the problem.
+                logger.warn(
+                        "Selector.select() returned prematurely {} times in a row; rebuilding Selector {}.",
+                        selectCnt, selector);
+
+                rebuildSelector();
+                selector = this.selector;
+
+                // Select again to populate selectedKeys.
+                selector.selectNow();
+                selectCnt = 1;
+                break;
+            }
+
+            currentTimeNanos = time;
+        }
+
+        if (selectCnt > MIN_PREMATURE_SELECTOR_RETURNS) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Selector.select() returned prematurely {} times in a row for Selector {}.",
+                        selectCnt - 1, selector);
+            }
+        }
+    } catch (CancelledKeyException e) {
+        if (logger.isDebugEnabled()) {
+            logger.debug(CancelledKeyException.class.getSimpleName() + " raised by a Selector {} - JDK bug?",
+                    selector, e);
+        }
+        // Harmless exception - log anyway
+    }
+}
+```
