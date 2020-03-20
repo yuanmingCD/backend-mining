@@ -306,7 +306,7 @@ Leaf-segment，主要通过以下方法实现优化。
 
 ### **机器id分配**
 
-通过之前对snowflake的分析可以看出，需要分配机器唯一标识workerId，由于workerId占用10bit，所以范围为0-1023，leaf通过zookper实现，具体在SnowflakeZookeeperHolder类中实现。
+通过之前对snowflake的分析可以看出，需要分配机器唯一标识workerId，由于workerId占用10bit，所以范围为0-1023，leaf通过zookeeper实现，具体在SnowflakeZookeeperHolder类中实现。
 
 机器启动初始化
 

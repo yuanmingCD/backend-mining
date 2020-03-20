@@ -45,3 +45,5 @@ netty检测内存泄露原理
 
 
 [netty 堆外内存泄露排查盛宴](https://www.jianshu.com/p/4e96beb37935?hmsr=toutiao.io&utm_medium=toutiao.io&utm_source=toutiao.io)
+
+[Netty 防止内存泄漏措施](https://www.infoq.cn/article/olLlvGFx*Kr0UV9K7tez)

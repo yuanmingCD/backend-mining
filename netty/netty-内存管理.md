@@ -12,6 +12,8 @@ netty的内存管理基于
 
 
 
+Recycler首先从当前线程绑定的值中获取stack，我们可以得知Netty中其实是每个线程关联着一个对象池，直接关联对象为Stack，先看看池中是否有可用对象，如果有则直接返回，如果没有则新创建一个Handle，并且调用newObject来新创建一个对象并且放入Handler的value中，newObject由用户自己实现。
+
 
 
 

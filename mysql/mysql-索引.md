@@ -41,5 +41,7 @@ B+ Tree索引和Hash索引区别
 
 
 
+参考文档
 
+[[MySQL索引背后的数据结构及算法原理](http://blog.codinglabs.org/articles/theory-of-mysql-index.html)
 

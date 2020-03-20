@@ -1,5 +1,7 @@
 # netty-内存管理-对象池
 
+[TOC]
+
 ### 对象池
 
 用于Bytebuf的分配和回收，通过Recycler实现，是一个基于thread-local栈的轻量级对象池。
@@ -13,7 +15,7 @@ Recycler对象池的实现主要是通过三个核心组件：Handler，WeakOrde
 1. Handle
    **对象引用的直接封装**。Handle主要提供一个recycle接口，用于提供对象回收的具体实现，每个Handle关联一个value字段，用于存放具体的池化对象，在对象池中，所有的池化对象都被这个Handle包装，Handle是对象池管理的基本单位。另外Handle指向这对应的Stack，对象存储也就是Handle存储的具体地方由Stack维护和管理。Recycler在内部类中给出了Handle的一个默认实现：DefaultHandle,**每一个Handler绑定一个对象实例**
 
-```
+```java
 static final class DefaultHandle<T> implements Handle<T> {
     private int lastRecycledId;
     private int recycleId;
